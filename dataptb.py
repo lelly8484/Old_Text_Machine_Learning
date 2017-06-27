@@ -6,9 +6,9 @@ import numpy as np
 import argparse
 import threading
 
-################################################################
+#################################################################
 # Options
-################################################################
+#################################################################
 
 parser = argparse.ArgumentParser(description='Data Generator')
 parser.add_argument('--asterisk', type=bool, default=True,
