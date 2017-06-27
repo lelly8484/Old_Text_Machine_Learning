@@ -260,7 +260,7 @@ def evaluate():
             hidden = model.init_hidden(val_bsz)
         else:
             hidden = repackage_hidden(hidden)
-        # remap input output
+        ## remap input output
         output, hidden = model(data, hidden)
         loss = criterion(output, targets)
         # torch.cuda.FloatTensor
