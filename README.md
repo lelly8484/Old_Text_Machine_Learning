@@ -1,7 +1,6 @@
 # Old_Text_Machine_Learning/combined model
 
 * Python scripts
-
 1 predict.py : start all steps of frequency model, word-level model, and char-level model. (Input : all xmls under XML directory.)
 2. freq_get_input.py : convert all xmls into combined text & extract the text excluding all special characters & extract list of words with dots.
 3. freq_train.py : get the list of the prediction of dot words.
