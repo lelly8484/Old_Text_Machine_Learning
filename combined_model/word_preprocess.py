@@ -30,14 +30,15 @@ args = parser.parse_args()
 #################################################################
 
 corpus = data.Corpus('word_data')
-t_array = corpus.train
-t_array = t_array.astype(np.int64)
+with open('word_data/dict_array', 'wb') as handle:
+    pickle.dump(corpus, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 if args.asterisk:
     with open('word_data/old_books.txt', 'r', encoding='UTF-8', newline='') as myfile:
         data = myfile.read().replace('\n', '')
 
     data2 = corpus.test
+
     i = 0
     asterisks2 = []
 
