@@ -10,7 +10,6 @@ import string
 import pickle
 import numpy as np
 import bisect
-import matplotlib.pyplot as plt
 import word_corpus_data as data
 import re
 
@@ -52,10 +51,10 @@ args = parser.parse_args()
 # Load data
 #############################################
 
-corpus = data.Corpus('word_data')
+with open('word_data/dict_array', 'rb') as handle:
+    corpus = pickle.load(handle)
 n_letters = len(corpus.dictionary)
 n_categories = len(corpus.dictionary)
-
 temp1 = []
 temp2 = []
 temp3 = {}
@@ -102,20 +101,21 @@ def repackage_hidden(h):
 #you have to search for what astericks/how many are in the array, and then you go back using the indices of the astericks you already know
 # to map that into indices of output array that you have 
 def get_batch(source, source_target, i, evaluation=False):
-    seq_len = min(args.bptt, source.size(1) - 1 - i)  # -1 so that there's data for the target of the last time step
+    seq_len = min(args.bptt, source.size(1) - i)  # -1 so that there's data for the target of the last time step
     data = Variable(source[:, i: i + seq_len], volatile=evaluation)   # Saves memory in purely inference mode
     if args.bidirectional:
         r_source_target = np.flip(source_target[:, i - 1: i - 1 + seq_len].cpu().numpy(), 1).copy()
         target = torch.cat((Variable(source_target[:, i + 1: i + 1 + seq_len].contiguous().view(-1)),
                             Variable(torch.from_numpy(r_source_target).cuda().contiguous().view(-1))), 0)
     else:
-        target = Variable(source_target[:, i + 1: i + 1 + seq_len].contiguous().view(-1))
+        target = Variable(source_target[:, i : i + 1 + seq_len].contiguous().view(-1))
     return data, target
 
 
 def embed(data_array, bsz):
     data_array = batchify(data_array, bsz)
     data_tensor = torch.FloatTensor(data_array.shape[0], data_array.shape[1], n_letters).zero_()
+
     data_array = data_array.astype(np.int64)
     for i in range(0, data_array.shape[0]):
         for j in range(0, data_array.shape[1]):
@@ -125,16 +125,13 @@ def embed(data_array, bsz):
     return data_tensor, target_tensor
 
 val_bsz = 5
-train_data_tensor, train_target_tensor = embed(train_data_array, args.batch_size)
-val_data_tensor, val_target_tensor = embed(val_data_array, val_bsz)
-all_data_tensor, all_target_tensor = embed(all_data_array, args.batch_size)
 
-temp = np.array([])
-for i, k in enumerate(train_data_array):
-    checkdots = corpus.dictionary.idx2word[train_data_array[i]]
-    if not '●' in checkdots:
-        temp = np.append(temp, train_data_array[i])
-train_data_array = temp
+# temp = np.array([])
+# for i, k in enumerate(train_data_array):
+#     checkdots = corpus.dictionary.idx2word[train_data_array[i]]
+#     if not '●' in checkdots:
+#         temp = np.append(temp, train_data_array[i])
+# train_data_array = temp
 
 ###############################################################################
 # Helper functions for searching within a sorted list
@@ -187,16 +184,26 @@ def train():
     total_loss = 0
     start_time = time.time()
     hidden = model.init_hidden(args.batch_size)
-    for batch, i in enumerate(range(1, train_data_tensor.size(1) - 1, args.bptt)):
-        data, targets = get_batch(train_data_tensor, train_target_tensor, i)
+
+    batch_length = train_data_array.size // args.batch_size
+    for batch, i in enumerate(range(1, batch_length - 1, args.bptt)):
+        temp_array = train_data_array[batch*args.bptt*args.batch_size:(batch+1)*args.bptt*args.batch_size]
+        train_data_tensor, train_target_tensor = embed(temp_array, args.batch_size)
+        train_data_tensor = train_data_tensor.cuda()
+        train_target_tensor = train_target_tensor.cuda()
+
+        data, targets = get_batch(train_data_tensor, train_target_tensor, 0)
+
         if not args.bidirectional:
             hidden = model.init_hidden(args.batch_size)
         else:
             hidden = repackage_hidden(hidden)
         model.zero_grad()
         output, hidden = model(data, hidden)
+
         loss = criterion(output, targets)
         loss.backward()
+
 
         torch.nn.utils.clip_grad_norm(model.parameters(), args.clip)
         for p in model.parameters():
@@ -212,6 +219,8 @@ def train():
                    elapsed * 1000 / args.log_interval, cur_loss, math.exp(cur_loss)))
             total_loss = 0
             start_time = time.time()
+        del train_data_tensor, train_target_tensor
+
 
 
 # Uses training data to generate predictions, calculate loss based on validation/testing data
@@ -221,9 +230,22 @@ def evaluate():
     model.eval()
     total_loss = 0
     hidden = model.init_hidden(val_bsz)
+    # hidden = model.init_hidden(args.batch_size)
     start_time = time.time()
-    for batch, i in enumerate(range(1, val_data_tensor.size(1) - 1, args.bptt)):
-        data, targets = get_batch(val_data_tensor, val_target_tensor, i)
+
+    batch_length = val_data_array.size // val_bsz
+    for batch, i in enumerate(range(1, batch_length - 1, args.bptt)):
+        temp_array = val_data_array[batch*args.bptt*val_bsz:(batch+1)*args.bptt*val_bsz]
+        val_data_tensor, val_target_tensor = embed(temp_array, val_bsz)
+        val_data_tensor = val_data_tensor.cuda()
+        val_target_tensor = val_target_tensor.cuda()
+
+        data, targets = get_batch(val_data_tensor, val_target_tensor, 0)
+
+
+
+    # for batch, i in enumerate(range(1, val_data_tensor.size(1) - 1, args.bptt)):
+    #     data, targets = get_batch(val_data_tensor, val_target_tensor, i)
         if not args.bidirectional:
             hidden = model.init_hidden(val_bsz)
         else:
@@ -239,11 +261,14 @@ def evaluate():
                   .format(batch, val_data_tensor.size(1) // args.bptt, lr,
                           elapsed * 1000 / (args.log_interval // 20)))
             start_time = time.time()
-    return total_loss[0] / (val_data_tensor.size(1) // args.bptt)  # return loss per character
+        size = val_data_tensor.size(1)
+        del val_data_tensor, val_target_tensor
+    return total_loss[0] / (size / args.bptt)  # return loss per character
 
 
 def test():
     # Turn on evaluation mode which disables dropout.
+    print ("---- inside test -----")
     model.eval()
     total_loss = 0
     correct = 0
@@ -254,9 +279,15 @@ def test():
     batch_length = all_data_array.size // args.batch_size
     hidden = model.init_hidden(args.batch_size)
     start_time = time.time()
-
+    
     for batch, i in enumerate(range(1, batch_length - 1, args.bptt)):
-        data, _ = get_batch(all_data_tensor, all_target_tensor, i, evaluation=True)
+        temp_array = all_data_array[batch*args.bptt*args.batch_size:(batch+1)*args.bptt*args.batch_size]
+        all_data_tensor, all_target_tensor = embed(temp_array, args.batch_size)
+        all_data_tensor = all_data_tensor.cuda()
+        all_target_tensor = all_target_tensor.cuda()
+        data, _ = get_batch(all_data_tensor, all_target_tensor, 0)
+        del all_data_tensor, all_target_tensor
+
 
         if not args.bidirectional:
             hidden = model.init_hidden(args.batch_size)
@@ -324,6 +355,10 @@ def test():
                 for i in target_val.lower():
                     if i == '●':
                         find += "\w"
+                    elif i == '[':
+                        find += '\['
+                    elif i == ']':
+                        find += '\]'
                     else:
                         find += i
                 pattern = re.compile(find)
@@ -346,12 +381,12 @@ def test():
                         if target_val[0].isupper():
                             check = check.replace(check[0], check[0].upper())
 
-                        # print ("yes", check, target_val)
+                        print ("yes", check, target_val)
                         correct += 1
                         IsPredicted = True
                         break
                 if not IsPredicted:
-                    # print ("no", "none", target_val)
+                    print ("no", "none", target_val)
                     temp2.append(target_val)
                 else:
                     temp2.append(check)
@@ -382,15 +417,11 @@ best_val_loss = None
 # At any point you can hit Ctrl + C to break out of training early.
 arr1 = []
 try:
-    if args.cuda:
-        train_data_tensor = train_data_tensor.cuda()
-        train_target_tensor = train_target_tensor.cuda()
-        val_data_tensor = val_data_tensor.cuda()
-        val_target_tensor = val_target_tensor.cuda()
     for epoch in range(args.load_epochs+1, args.epochs+args.load_epochs+1):
         epoch_start_time = time.time()
         train()
         val_loss = evaluate()
+        # val_loss = 0
         print('-' * 89)
         print('| end of epoch {:3d} | time: {:5.2f}s | valid loss {:5.2f} |'.format(
             epoch, (time.time() - epoch_start_time),
@@ -410,17 +441,12 @@ except KeyboardInterrupt:
    print('Exiting from training early')
 
 # Load the best saved model.
+
 with open('word_ptb_models/{}_Epoch{}_BatchSize{}_Dropout{}_LR{}_HiddenDim{}.pt'.format(
                name, args.load_epochs+args.epochs, args.batch_size, args.dropout, args.lr, args.nhid), 'rb') as f:
     model = torch.load(f)
 
 # Run on test data.
-if args.cuda:
-    # first free up some GPU memory
-    del train_data_tensor, train_target_tensor, val_data_tensor, val_target_tensor
-    all_data_tensor = all_data_tensor.cuda()
-    all_target_tensor = all_target_tensor.cuda()
-
 test_accuracy, high_accuracy, high_percentage = test()
 
 print('=' * 89)
