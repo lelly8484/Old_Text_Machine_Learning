@@ -53,8 +53,10 @@ args = parser.parse_args()
 
 with open('word_data/dict_array', 'rb') as handle:
     corpus = pickle.load(handle)
-n_letters = len(corpus.dictionary)
-n_categories = len(corpus.dictionary)
+# n_letters = len(corpus.dictionary)
+# n_categories = len(corpus.dictionary)
+n_letters = len(corpus.rare_dictionary)
+n_categories = len(corpus.rare_dictionary)
 temp1 = []
 temp2 = []
 temp3 = {}
@@ -261,9 +263,9 @@ def evaluate():
                   .format(batch, val_data_tensor.size(1) // args.bptt, lr,
                           elapsed * 1000 / (args.log_interval // 20)))
             start_time = time.time()
-        size = val_data_tensor.size(1)
+        # size = val_data_tensor.size(1)
         del val_data_tensor, val_target_tensor
-    return total_loss[0] / (size / args.bptt)  # return loss per character
+    return total_loss[0] / (batch_length / args.bptt)  # return loss per character
 
 
 def test():
@@ -359,6 +361,10 @@ def test():
                         find += '\['
                     elif i == ']':
                         find += '\]'
+                    elif i == '(':
+                        find += '\('
+                    elif i == ')':
+                        find += '\)'                        
                     else:
                         find += i
                 pattern = re.compile(find)
