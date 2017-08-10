@@ -54,14 +54,16 @@ if args.asterisk:
     pickle.dump(asterisks2, test_data)
     test_data.close()
 
-    data3 = corpus.train
+    # data3 = corpus.train
+    data3 = corpus.rare_word
     data3 = data3.astype(np.int64)
     data3 = data3[len(data3)//10:]
 
     with open('word_data/train_data_array', 'wb') as handle:
         pickle.dump(data3, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    data4 = corpus.train
+    # data4 = corpus.train
+    data4 = corpus.rare_word
     data4 = data4.astype(np.int64)
     data4 = data4[:len(data4)//10]
     with open('word_data/val_data_array', 'wb') as handle:
