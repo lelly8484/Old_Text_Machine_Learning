@@ -168,7 +168,7 @@ else:
     name = 'LSTM'
 
 if args.serialize:
-    with open('./PTB Models/{}_Epoch{}_BatchSize{}_Dropout{}_LR{}_HiddenDim{}.pt'.format(
+    with open('./char_ptb_models/{}_Epoch{}_BatchSize{}_Dropout{}_LR{}_HiddenDim{}.pt'.format(
              name, args.load_epochs, args.batch_size, args.dropout, args.lr, args.nhid), 'rb') as f:
         model = torch.load(f)
 else:
@@ -501,6 +501,6 @@ temp5 = []
 for k in temp4:
     temp5.append(temp4[k])
 
-dot_file=open('predicted', 'wb')
+dot_file=open('char_data/predicted', 'wb')
 pickle.dump(temp5, dot_file)
 dot_file.close()
