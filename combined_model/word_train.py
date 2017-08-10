@@ -283,12 +283,24 @@ def test():
     start_time = time.time()
     
     for batch, i in enumerate(range(1, batch_length - 1, args.bptt)):
-        temp_array = all_data_array[batch*args.bptt*args.batch_size:(batch+1)*args.bptt*args.batch_size]
-        all_data_tensor, all_target_tensor = embed(temp_array, args.batch_size)
-        all_data_tensor = all_data_tensor.cuda()
-        all_target_tensor = all_target_tensor.cuda()
-        data, _ = get_batch(all_data_tensor, all_target_tensor, 0)
-        del all_data_tensor, all_target_tensor
+        temp_array = np.zeros(0)
+
+        for j in range(args.batch_size):
+            temp_array1 = all_data_array[batch*args.bptt*(j+1)+1 : batch*args.bptt*(j+1) + args.bptt + 1]
+            temp_array = np.concatenate((temp_array,temp_array1), axis = 0)
+
+        all_data_tensor2, all_target_tensor2 = embed(temp_array, args.batch_size)
+        all_data_tensor2 = all_data_tensor2.cuda()
+        all_target_tensor2 = all_target_tensor2.cuda()
+        data, _ = get_batch(all_data_tensor2, all_target_tensor2, 0)
+        del all_data_tensor2, all_target_tensor2
+
+        # temp_array = all_data_array[batch*args.bptt*args.batch_size:(batch+1)*args.bptt*args.batch_size]
+        # all_data_tensor, all_target_tensor = embed(temp_array, args.batch_size)
+        # all_data_tensor = all_data_tensor.cuda()
+        # all_target_tensor = all_target_tensor.cuda()
+        # data, _ = get_batch(all_data_tensor, all_target_tensor, 0)
+        # del all_data_tensor, all_target_tensor
 
 
         if not args.bidirectional:
