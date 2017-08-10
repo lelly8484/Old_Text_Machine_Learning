@@ -6,7 +6,7 @@ import string
 
 
 with open("word_data/old_books.txt", "w", encoding='UTF-8', newline='') as write_file:
-	for filename in glob.glob('freq_output/*.xml'):
+	for filename in glob.glob('XML/*.xml'):
 		with open(filename, "r", encoding='UTF-8', newline='') as read_file:
 			first = True
 			for line in read_file:
